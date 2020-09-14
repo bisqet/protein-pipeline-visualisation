@@ -1,0 +1,22 @@
+{
+  "name": "protein-pipeline-visualization",
+  "version": "0.0.1",
+  "description": "protein pipeline visualization with msa-viewer",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bisqet/protein-pipeline-visualization.git"
+  },
+  "keywords": [
+    "msa"
+  ],
+  "author": "David Lukava",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/bisqet/protein-pipeline-visualization/issues"
+  },
+  "homepage": "https://github.com/bisqet/protein-pipeline-visualization#readme"
+}
