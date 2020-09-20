@@ -1,4 +1,4 @@
-import {html, render} from '../node_modules/lit-html/lit-html.js';
+import {html, render, nothing} from '../node_modules/lit-html/lit-html.js';
 
 class ProteinPipelineVisualization extends HTMLElement {
   constructor() {
@@ -7,7 +7,8 @@ class ProteinPipelineVisualization extends HTMLElement {
     this.update();
     this.active = false;
     this.proteins = ''
-    this.predictors = []
+    this.predictors = [];
+    this.proteinHeaders = [];
   }
 
   importTSV(e) {
@@ -27,10 +28,25 @@ class ProteinPipelineVisualization extends HTMLElement {
     this.active = true;
     this.proteins = proteinPipelineOutputFasta.proteins;
     this.predictors = proteinPipelineOutputFasta.predictors;
+    this.proteinHeaders = proteinPipelineOutput.proteinHeaders;
+    this.saveToLocalStorage();
     this.update();
     // this.renderProteinVisualisation(proteinPipelineOutputFasta.proteins)
   }
 
+  saveToLocalStorage() {
+    const json = localStorage.getItem('__protein-visualization__') || '{}';
+    const stringifiedNewState = JSON.stringify({
+      proteins: this.proteins,
+      predictors: this.predictors,
+      proteinHeaders: this.proteinHeaders
+    });
+    if (stringifiedNewState !== json) localStorage.setItem('__protein-visualization__', stringifiedNewState);
+  }
+  getSaveFromLocalStorage(){
+    const json = localStorage.getItem('__protein-visualization__') || '{}';
+    return JSON.parse(json);
+  }
   transformToFasta({proteins, predictors, proteinHeaders}) {
     const proteinPipelineOutputFasta = {
       proteins: '',
@@ -58,7 +74,33 @@ class ProteinPipelineVisualization extends HTMLElement {
     return html`
         
       <style>
-
+      .predictor-tab.active{
+        outline: -webkit-focus-ring-color auto 1px;
+      }
+      .predictor-page{
+      display: none;
+      }
+.active{
+display: block;
+}
+.tabs{
+display: grid;
+grid-template-columns: 25% 25% 25% 25%;
+}
+.predictor-tab{
+background-color: #4CAF50;
+  border: none;
+  color: white;
+  padding: 10px 32px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  cursor: pointer;
+  width: 80%;
+  margin: auto;
+  margin-bottom: 2px;
+}
       /* BASIC */
 .protein-msa{
 }
@@ -281,25 +323,102 @@ class ProteinPipelineVisualization extends HTMLElement {
 }
 
       </style>
-      <input type="file" @change="${this.importTSV}">
-      <div class="protein-msa""></div>
+      <div><input type="file" @change="${this.importTSV}">
+      <div class="protein-msa" style="width: 100vw"></div>
       <div class="predictors">
-        <div class="tabs">${this.predictors.map(predictor=>html`<button class="predictor-tab">${predictor.name}</button>`)}</div>
-        <div class="pages">${this.predictors.map(predictor=>html`<div class="predictor-tab" id="${predictor.name}"></div>`)}</div>
+        ${this.predictors
+      ? html`<div class="tabs">${this.predictors.map(predictor =>
+        html`<button class="predictor-tab" data-label="${predictor.name}" @click="${() => {
+          this.navigateTab(predictor.name)
+        }}">${predictor.name}</button>`
+      )}</div>
+        <div class="pages">${this.predictors.map((predictor, i) =>
+        html`<div class="predictor-page" data-label="${predictor.name}"></div>`
+      )}</div>`
+      : nothing}
+
+      </div>
       </div>
     `;
+  };
+
+  renderPredictors() {
+    const predictorPages = Array.from(this.shadowRoot.querySelectorAll(`.predictor-page`));
+    predictorPages.forEach((el, i) => {
+      const proteins = msa.io.fasta.parse(this.predictors[i].proteins);
+      const rowHeight = 15;
+      let m = msa({
+        el: el,
+        zoomer: {
+          menuFontsize: "12px",
+          autoResize: true,
+          rowHeight: rowHeight,
+          alignmentHeight: this.proteinHeaders.length * rowHeight
+        },
+        vis: {
+          conserv: false,
+          overviewbox: false,
+          seqlogo: true
+        },
+        conf: {
+          dropImport: true
+        },
+        seqs: proteins
+      });
+      m.render();
+    });
   }
 
+  navigateTab(label) {
+    const tabs = this.shadowRoot.querySelector(`.tabs`);
+    const pages = this.shadowRoot.querySelector(`.pages`);
+    const currentActivePage = pages.querySelector(`.active`);
+    const currentActiveTab = tabs.querySelector(`.active`);
+    if (currentActivePage) currentActivePage.classList.remove('active');
+    if (currentActiveTab) currentActiveTab.classList.remove('active');
+    pages.querySelector(`[data-label=${label}]`).classList.add('active');
+    tabs.querySelector(`[data-label=${label}]`).classList.add('active');
+  }
+
+//TODO: when highlight certain column in one sheet, highlight same in second
   update() {
     render(this.template(), this.shadowRoot, {eventContext: this});
     if (this.active) {
       const proteins = msa.io.fasta.parse(this.proteins);
+      const rowHeight = 15;
       let m = msa({
         el: this.shadowRoot.querySelector(".protein-msa"),
+        zoomer: {
+          menuFontsize: "12px",
+          autoResize: true,
+          rowHeight: rowHeight,
+          alignmentHeight: this.proteinHeaders.length * rowHeight
+        },
+        vis: {
+          conserv: false,
+          overviewbox: false,
+          seqlogo: true
+        },
+        conf: {
+          dropImport: true
+        },
         seqs: proteins
       });
-      m.render();
+      m.render();// first render calculates width bad, so..
+
+      this.renderPredictors();
       console.log(m)
+    }
+  }
+
+  connectedCallback() {
+    const save = this.getSaveFromLocalStorage();
+    if(save.predictors&&save.proteins&&save.proteinHeaders){
+      this.predictors =save.predictors
+      this.proteins =save.proteins
+      this.proteinHeaders =save.proteinHeaders
+      this.active = true;
+      this.update()
     }
   }
 
