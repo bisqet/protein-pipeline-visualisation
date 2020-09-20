@@ -85,7 +85,7 @@ display: block;
 }
 .tabs{
 display: grid;
-grid-template-columns: 25% 25% 25% 25%;
+grid-template-columns: ${this.proteinHeaders?this.proteinHeaders.map(protein=>`${100/this.proteinHeaders.length}% `):`100%`};
 }
 .predictor-tab{
 background-color: #4CAF50;
